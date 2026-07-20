@@ -22,6 +22,7 @@ import {
   ServiceArea,
   DeliverySlot,
   SystemSetting,
+  Waitlist,
 } from '../entities';
 
 export async function seedDatabase(dataSource: DataSource): Promise<void> {
@@ -446,6 +447,53 @@ export async function seedDatabase(dataSource: DataSource): Promise<void> {
         description: 'Enable referral program',
         dataType: 'boolean',
         isPublic: true,
+      }),
+    ]);
+
+    // 8. Seed Waitlist
+    console.log('📍 Seeding waitlist entries...');
+    const waitlistRepository = dataSource.getRepository(Waitlist);
+    await waitlistRepository.save([
+      waitlistRepository.create({
+        name: 'Rohan Sharma',
+        phone: '+919876543210',
+        email: 'rohan@example.com',
+        pincode: '400076',
+        city: 'Powai, Mumbai',
+        state: 'Maharashtra',
+        preferredMealType: 'all',
+        status: 'pending',
+      }),
+      waitlistRepository.create({
+        name: 'Priya Patel',
+        phone: '+918765432109',
+        email: 'priya@example.com',
+        pincode: '400076',
+        city: 'Powai, Mumbai',
+        state: 'Maharashtra',
+        preferredMealType: 'lunch',
+        status: 'pending',
+      }),
+      waitlistRepository.create({
+        name: 'Amit Patel',
+        phone: '+917654321098',
+        email: 'amit@example.com',
+        pincode: '400092',
+        city: 'Borivali, Mumbai',
+        state: 'Maharashtra',
+        preferredMealType: 'dinner',
+        status: 'pending',
+      }),
+      waitlistRepository.create({
+        name: 'Anjali Desai',
+        phone: '+916543210987',
+        email: 'anjali@example.com',
+        pincode: '400013',
+        city: 'Lower Parel, Mumbai',
+        state: 'Maharashtra',
+        preferredMealType: 'all',
+        status: 'notified',
+        notifiedAt: new Date(),
       }),
     ]);
 

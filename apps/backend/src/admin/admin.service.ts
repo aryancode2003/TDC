@@ -4,7 +4,7 @@ import { ProviderRepository } from '../providers/repositories/provider.repositor
 import { CustomerRepository } from '../customers/repositories/customer.repository';
 import { SystemSettingRepository } from './repositories/system-setting.repository';
 import { WaitlistRepository } from '../customers/repositories/waitlist.repository';
-import { Provider, Customer, SystemSetting, Payment, Subscription, Order } from '../database/entities';
+import { Provider, Customer, SystemSetting, Payment, Subscription, Order, Waitlist } from '../database/entities';
 import { UpdateProviderStatusDto, GlobalAnalyticsResponseDto } from './dto/admin.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 
@@ -130,6 +130,24 @@ export class AdminService {
 
   async getSystemSettings(): Promise<SystemSetting[]> {
     return this.systemSettingRepository.find();
+  }
+
+  async getWaitlistSummary(): Promise<any[]> {
+    const manager = this.dataSource.manager;
+    const results = await manager.createQueryBuilder(Waitlist, 'waitlist')
+      .select('waitlist.pincode', 'pincode')
+      .addSelect('MAX(waitlist.city)', 'locality')
+      .addSelect('COUNT(waitlist.id)', 'count')
+      .addSelect('SUM(CASE WHEN waitlist.status = \'pending\' THEN 1 ELSE 0 END)', 'pendingCount')
+      .groupBy('waitlist.pincode')
+      .getRawMany();
+
+    return results.map(r => ({
+      pincode: r.pincode,
+      location: r.locality,
+      count: parseInt(r.count || 0),
+      status: parseInt(r.pendingCount || 0) > 0 ? 'Active' : 'Notified'
+    }));
   }
 
   // ==========================================

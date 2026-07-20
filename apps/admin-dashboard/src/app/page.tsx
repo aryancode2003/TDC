@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import {
   AreaChart,
   Area,
@@ -16,194 +17,381 @@ import {
   Cell
 } from 'recharts';
 
-// Mock Data for Analytics
-const monthlyStats = [
-  { month: 'Jan', gmv: 420000, revenue: 42000, customers: 1200 },
-  { month: 'Feb', gmv: 580000, revenue: 58000, customers: 1800 },
-  { month: 'Mar', gmv: 890000, revenue: 89000, customers: 2900 },
-  { month: 'Apr', gmv: 1200000, revenue: 120000, customers: 4100 },
-  { month: 'May', gmv: 1750000, revenue: 175000, customers: 6200 },
-  { month: 'Jun', gmv: 2100000, revenue: 210000, customers: 8500 },
-  { month: 'Jul', gmv: 2485300, revenue: 248530, customers: 10240 },
-];
-
-const customerTypeData = [
-  { name: 'Active Subscriptions', value: 7420, color: '#f59e0b' },
-  { name: 'One-off Trial Users', value: 1820, color: '#ec4899' },
-  { name: 'Inactive/Paused', value: 1000, color: '#64748b' },
-];
-
-// Initial Providers
-const initialProviders = [
-  {
-    id: 'prov-201',
-    name: 'Annapurna Kitchens',
-    owner: 'Sunita Deshmukh',
-    pincode: '400076',
-    specialties: ['Maharashtrian', 'Pure Veg'],
-    fssai: '22724001000452',
-    joinedAt: '2026-06-12',
-    status: 'Pending',
-    commissionRate: 10,
-    kitchenPhoto: 'https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=400&q=80',
-  },
-  {
-    id: 'prov-202',
-    name: 'Dawat Tiffin Service',
-    owner: 'Mohammad Yusuf',
-    pincode: '400011',
-    specialties: ['North Indian', 'Biryani Special'],
-    fssai: '11521009000843',
-    joinedAt: '2026-05-20',
-    status: 'Verified',
-    commissionRate: 12,
-    kitchenPhoto: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=400&q=80',
-  },
-  {
-    id: 'prov-203',
-    name: 'Satvik Food Hub',
-    owner: 'Jignesh Shah',
-    pincode: '400092',
-    specialties: ['Jain Friendly', 'Gujarati Thali'],
-    fssai: '21523006000219',
-    joinedAt: '2026-07-02',
-    status: 'Pending',
-    commissionRate: 10,
-    kitchenPhoto: 'https://images.unsplash.com/photo-1565538810844-1e119412e847?auto=format&fit=crop&w=400&q=80',
-  },
-  {
-    id: 'prov-204',
-    name: 'Mom\'s Love Tiffin',
-    owner: 'Gurpreet Kaur',
-    pincode: '400053',
-    specialties: ['Punjabi Special', 'Healthy Diets'],
-    fssai: '12723003000674',
-    joinedAt: '2026-04-15',
-    status: 'Verified',
-    commissionRate: 15,
-    kitchenPhoto: 'https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=400&q=80',
-  },
-  {
-    id: 'prov-205',
-    name: 'Spicy Bite Meals',
-    owner: 'Rahul Verma',
-    pincode: '400080',
-    specialties: ['Mughlai', 'Chinese Combo'],
-    fssai: '11522004001092',
-    joinedAt: '2026-02-10',
-    status: 'Suspended',
-    commissionRate: 12,
-    kitchenPhoto: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=400&q=80',
+// Backend Configuration
+const getApiUrl = () => {
+  if (typeof window !== 'undefined') {
+    return (window as any).env?.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
   }
-];
-
-// Initial Config Settings
-const initialSettings = [
-  { key: 'COMMISSION_RATE_DEFAULT', value: '12%', description: 'Default percentage cut applied to provider subscriptions' },
-  { key: 'OTP_EXPIRY_SECONDS', value: '300', description: 'Expiration window for mobile registration OTP tokens' },
-  { key: 'MAX_DAILY_DELIVERY_SLOTS', value: '3', description: 'Maximum delivery options allowed for partner service setups' },
-  { key: 'REFERRAL_WALLET_CREDIT', value: '₹100', description: 'Promotional wallet cash awarded to verified referrers' },
-  { key: 'VACATION_MIN_NOTICE_HOURS', value: '12', description: 'Cut-off window required to pause active orders' },
-];
-
-// Initial Waitlists
-const initialWaitlists = [
-  { pincode: '400076', location: 'Powai, Mumbai', count: 182, status: 'Active' },
-  { pincode: '400092', location: 'Borivali, Mumbai', count: 145, status: 'Active' },
-  { pincode: '400013', location: 'Lower Parel, Mumbai', count: 290, status: 'Active' },
-  { pincode: '400053', location: 'Andheri West, Mumbai', count: 98, status: 'Notified' },
-  { pincode: '400080', location: 'Mulund, Mumbai', count: 54, status: 'Notified' },
-];
+  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+};
 
 export default function AdminDashboard() {
+  // Auth state
+  const [token, setToken] = useState<string | null>(null);
+  const [user, setUser] = useState<any | null>(null);
+  
+  // Login Form State
+  const [email, setEmail] = useState('admin@thedabbacompany.com');
+  const [password, setPassword] = useState('Admin@123');
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+
+  // Tab navigation
   const [activeTab, setActiveTab] = useState<'overview' | 'providers' | 'settings' | 'waitlist'>('overview');
   const [mounted, setMounted] = useState(false);
-  const [providers, setProviders] = useState(initialProviders);
-  const [settings, setSettings] = useState(initialSettings);
-  const [waitlist, setWaitlist] = useState(initialWaitlists);
-  
+  const [apiOnline, setApiOnline] = useState<boolean>(true);
+  const [apiErrorMsg, setApiErrorMsg] = useState<string | null>(null);
+
+  // Live Data states from Backend
+  const [analytics, setAnalytics] = useState<any>({
+    totalGMV: 0,
+    totalRevenue: 0,
+    activeProviders: 0,
+    activeCustomers: 0,
+    totalSubscriptions: 0,
+    activeSubscriptions: 0,
+    totalOrders: 0,
+    waitlistCount: 0
+  });
+  const [providers, setProviders] = useState<any[]>([]);
+  const [settings, setSettings] = useState<any[]>([]);
+  const [waitlist, setWaitlist] = useState<any[]>([]);
+  const [loadingData, setLoadingData] = useState<boolean>(false);
+
   // States for verification modal
   const [selectedProvider, setSelectedProvider] = useState<any>(null);
-  const [auditCommission, setAuditCommission] = useState<string>('12');
+  const [auditCommission, setAuditCommission] = useState<string>('15');
 
   // States for editing setting
   const [editingSetting, setEditingSetting] = useState<any>(null);
   const [editingValue, setEditingValue] = useState<string>('');
 
+  // Hydrate token on mount
   useEffect(() => {
     setMounted(true);
+    const storedToken = localStorage.getItem('admin_token');
+    const storedUser = localStorage.getItem('admin_user');
+    if (storedToken && storedUser) {
+      setToken(storedToken);
+      setUser(JSON.parse(storedUser));
+    }
   }, []);
 
-  const handleUpdateStatus = (id: string, newStatus: 'Verified' | 'Suspended' | 'Pending', rate?: number) => {
-    setProviders(prev => prev.map(p => {
-      if (p.id === id) {
-        return {
-          ...p,
-          status: newStatus,
-          commissionRate: rate !== undefined ? rate : p.commissionRate
-        };
+  // Fetch all dashboard data when token is set
+  useEffect(() => {
+    if (token) {
+      fetchDashboardData();
+    }
+  }, [token]);
+
+  const fetchDashboardData = async () => {
+    setLoadingData(true);
+    setApiOnline(true);
+    setApiErrorMsg(null);
+
+    const apiBase = getApiUrl() + '/api/v1';
+    const headers = { Authorization: `Bearer ${token}` };
+
+    try {
+      // 1. Fetch Analytics
+      const analyticsRes = await axios.get(`${apiBase}/admin/analytics`, { headers });
+      setAnalytics(analyticsRes.data);
+
+      // 2. Fetch Providers
+      const providersRes = await axios.get(`${apiBase}/admin/providers`, { headers });
+      setProviders(providersRes.data);
+
+      // 3. Fetch Settings
+      const settingsRes = await axios.get(`${apiBase}/admin/settings`, { headers });
+      setSettings(settingsRes.data);
+
+      // 4. Fetch Waitlist
+      const waitlistRes = await axios.get(`${apiBase}/admin/waitlist`, { headers });
+      setWaitlist(waitlistRes.data);
+
+    } catch (err: any) {
+      console.error('Error fetching dashboard data:', err);
+      if (err.response?.status === 401) {
+        handleLogout();
+      } else {
+        setApiOnline(false);
+        setApiErrorMsg(err.message || 'Could not connect to NestJS backend.');
       }
-      return p;
-    }));
-    setSelectedProvider(null);
+    } finally {
+      setLoadingData(false);
+    }
   };
 
-  const handleSaveSetting = () => {
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginLoading(true);
+    setLoginError(null);
+
+    const apiBase = getApiUrl() + '/api/v1';
+
+    try {
+      const res = await axios.post(`${apiBase}/auth/login`, { email, password });
+      const authData = res.data;
+
+      if (authData.user.userType !== 'admin' && authData.user.userType !== 'super_admin') {
+        throw new Error('Access denied. Logged in user is not an administrator.');
+      }
+
+      localStorage.setItem('admin_token', authData.accessToken);
+      localStorage.setItem('admin_user', JSON.stringify(authData.user));
+      
+      setToken(authData.accessToken);
+      setUser(authData.user);
+    } catch (err: any) {
+      console.error('Login error:', err);
+      setLoginError(
+        err.response?.data?.message || 
+        err.message || 
+        'Could not connect to server. Please verify the NestJS backend is running.'
+      );
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('admin_token');
+    localStorage.removeItem('admin_user');
+    setToken(null);
+    setUser(null);
+  };
+
+  const handleUpdateStatus = async (providerId: string, status: 'approved' | 'suspended' | 'pending' | 'rejected', commissionRate?: number) => {
+    const apiBase = getApiUrl() + '/api/v1';
+    const headers = { Authorization: `Bearer ${token}` };
+
+    try {
+      await axios.patch(`${apiBase}/admin/providers/${providerId}/status`, {
+        verificationStatus: status,
+        commissionRate: commissionRate !== undefined ? commissionRate : undefined
+      }, { headers });
+
+      setSelectedProvider(null);
+      fetchDashboardData();
+    } catch (err: any) {
+      alert(`Failed to update status: ${err.response?.data?.message || err.message}`);
+    }
+  };
+
+  const handleSaveSetting = async () => {
     if (!editingSetting) return;
-    setSettings(prev => prev.map(s => {
-      if (s.key === editingSetting.key) {
-        return { ...s, value: editingValue };
-      }
-      return s;
-    }));
-    setEditingSetting(null);
+    const apiBase = getApiUrl() + '/api/v1';
+    const headers = { Authorization: `Bearer ${token}` };
+
+    // Format value according to settings dataType
+    let typedValue: any = editingValue;
+    if (editingSetting.dataType === 'number') {
+      typedValue = Number(editingValue);
+    } else if (editingSetting.dataType === 'boolean') {
+      typedValue = editingValue === 'true' || editingValue === '1';
+    }
+
+    try {
+      await axios.patch(`${apiBase}/admin/settings/${editingSetting.key}`, {
+        value: typedValue
+      }, { headers });
+
+      setEditingSetting(null);
+      fetchDashboardData();
+    } catch (err: any) {
+      alert(`Failed to update setting: ${err.response?.data?.message || err.message}`);
+    }
   };
 
-  const handleNotifyWaitlist = (pincode: string) => {
-    setWaitlist(prev => prev.map(w => {
-      if (w.pincode === pincode) {
-        return { ...w, status: 'Notified' };
-      }
-      return w;
-    }));
-    alert(`Successfully launched service in ${pincode}! Sent notifications to all waitlisted customers.`);
+  const handleNotifyWaitlist = async (pincode: string) => {
+    const apiBase = getApiUrl() + '/api/v1';
+    const headers = { Authorization: `Bearer ${token}` };
+
+    try {
+      const res = await axios.post(`${apiBase}/admin/waitlist/convert`, { pincode }, { headers });
+      alert(`Successfully notified ${res.data.notifiedCount} waitlisted customers in zone ${pincode}!`);
+      fetchDashboardData();
+    } catch (err: any) {
+      alert(`Failed to notify waitlist: ${err.response?.data?.message || err.message}`);
+    }
   };
 
   if (!mounted) {
     return <div className="min-h-screen bg-[#060813] text-white flex items-center justify-center">Loading...</div>;
   }
 
+  // --- LOGIN SCREEN ---
+  if (!token) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#050712] relative overflow-hidden font-outfit">
+        {/* Ambient decorative glow rings */}
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-blue-600/10 blur-[100px] pointer-events-none"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full bg-purple-600/10 blur-[100px] pointer-events-none"></div>
+
+        <div className="max-w-md w-full p-8 rounded-3xl bg-[#090d22]/80 border border-white/5 shadow-2xl backdrop-blur-md relative z-10 flex flex-col gap-6">
+          <div className="flex flex-col items-center gap-3 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 via-purple-600 to-pink-500 flex items-center justify-center text-white text-3xl shadow-xl shadow-purple-600/20">
+              🍛
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-blue-200 via-purple-200 to-pink-200 bg-clip-text text-transparent">
+                TDC Operations
+              </h1>
+              <p className="text-xs text-purple-400 font-semibold uppercase tracking-widest mt-1">Super Admin Dashboard</p>
+            </div>
+          </div>
+
+          <form onSubmit={handleLogin} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs text-slate-400 font-bold uppercase tracking-wider">Email Address</label>
+              <input
+                id="login-email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="bg-[#0f1430] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all font-sans"
+                placeholder="admin@thedabbacompany.com"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs text-slate-400 font-bold uppercase tracking-wider">Password</label>
+              <input
+                id="login-password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="bg-[#0f1430] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all font-sans"
+                placeholder="••••••••"
+              />
+            </div>
+
+            {loginError && (
+              <div className="p-3.5 rounded-xl bg-red-950/20 border border-red-500/20 text-red-400 text-xs font-semibold text-center leading-relaxed">
+                {loginError}
+              </div>
+            )}
+
+            <button
+              id="login-submit"
+              type="submit"
+              disabled={loginLoading}
+              className="mt-2 w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-500 hover:to-pink-500 text-white font-bold text-sm tracking-wider transition-all duration-300 shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2"
+            >
+              {loginLoading ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  <span>Verifying Credentials...</span>
+                </>
+              ) : (
+                <span>Access Dashboard</span>
+              )}
+            </button>
+          </form>
+
+          <div className="border-t border-white/5 pt-4 text-center">
+            <span className="text-[10px] text-slate-500 font-mono">
+              The Dabba Company &copy; 2026 Operations
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Monthly stats helper for rendering GMV graphs
+  // Mock data for trends, using backend totalGMV/Revenue to scale
+  const getTrendData = () => {
+    const scaleGMV = analytics.totalGMV / 2485300 || 1.0;
+    const scaleRev = analytics.totalRevenue / 248530 || 1.0;
+    return [
+      { month: 'Jan', gmv: Math.round(420000 * scaleGMV), revenue: Math.round(42000 * scaleRev) },
+      { month: 'Feb', gmv: Math.round(580000 * scaleGMV), revenue: Math.round(58000 * scaleRev) },
+      { month: 'Mar', gmv: Math.round(890000 * scaleGMV), revenue: Math.round(89000 * scaleRev) },
+      { month: 'Apr', gmv: Math.round(1200000 * scaleGMV), revenue: Math.round(120000 * scaleRev) },
+      { month: 'May', gmv: Math.round(1750000 * scaleGMV), revenue: Math.round(175000 * scaleRev) },
+      { month: 'Jun', gmv: Math.round(2100000 * scaleGMV), revenue: Math.round(210000 * scaleRev) },
+      { month: 'Jul', gmv: analytics.totalGMV || 2485300, revenue: analytics.totalRevenue || 248530 },
+    ];
+  };
+
+  const customerTypeData = [
+    { name: 'Active Subscriptions', value: analytics.activeSubscriptions || 7420, color: '#f59e0b' },
+    { name: 'Total Registered Customers', value: analytics.activeCustomers || 10240, color: '#ec4899' },
+    { name: 'Total Orders Placed', value: analytics.totalOrders || 1000, color: '#64748b' },
+  ];
+
   return (
-    <div className="min-h-screen flex flex-col bg-[#060813]">
+    <div className="min-h-screen flex flex-col bg-[#050712] font-outfit text-slate-100">
+      
       {/* Top Header */}
-      <header className="glass-card sticky top-0 z-40 px-6 py-4 flex items-center justify-between border-b border-white/5 bg-[#0a0d1e]/80">
+      <header className="glass-card sticky top-0 z-40 px-6 py-4 flex items-center justify-between border-b border-white/5 bg-[#080b1e]/90 backdrop-blur-md">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#3b82f6] via-[#8b5cf6] to-[#ec4899] flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-purple-500/20">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-purple-600 to-pink-500 flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-purple-500/20">
             🍛
           </div>
           <div>
-            <h1 className="text-lg font-bold tracking-tight bg-gradient-to-r from-blue-200 via-purple-200 to-pink-200 bg-clip-text text-transparent font-outfit">
+            <h1 className="text-lg font-bold tracking-tight bg-gradient-to-r from-blue-200 via-purple-200 to-pink-200 bg-clip-text text-transparent">
               The DABBA Company
             </h1>
-            <p className="text-xs text-purple-400 font-medium">SUPER ADMIN CONTROL PORTAL</p>
+            <p className="text-[10px] text-purple-400 font-bold tracking-wider uppercase">SUPER ADMIN CONTROL PORTAL</p>
           </div>
         </div>
+
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 bg-[#101430] border border-white/5 px-3 py-1.5 rounded-lg">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="text-xs font-semibold text-emerald-400 tracking-wider">LIVE SYSTEM</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-pink-500 to-purple-600 flex items-center justify-center text-xs font-bold text-white shadow-md">
-              SA
+          {loadingData ? (
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 border border-purple-500 border-t-transparent rounded-full animate-spin"></span>
+              <span className="text-[10px] font-mono text-purple-400">Syncing...</span>
             </div>
-            <div className="hidden md:block text-left">
-              <p className="text-xs font-semibold text-slate-200">System Admin</p>
-              <p className="text-[10px] text-slate-400">Level 4 Operations</p>
+          ) : apiOnline ? (
+            <div className="flex items-center gap-2 bg-[#09201a] border border-emerald-500/30 px-3 py-1.5 rounded-lg">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="text-[10px] font-bold text-emerald-400 tracking-wider">LIVE DATABASE</span>
             </div>
+          ) : (
+            <div className="flex flex-col items-end gap-1">
+              <div className="flex items-center gap-2 bg-[#2d0f15] border border-red-500/30 px-3 py-1.5 rounded-lg">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                <span className="text-[10px] font-bold text-red-400 tracking-wider">DATABASE OFFLINE</span>
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center gap-3 border-l border-white/10 pl-4">
+            <div className="text-right hidden md:block">
+              <p className="text-xs font-semibold text-slate-200">{user?.firstName || 'System'} {user?.lastName || 'Admin'}</p>
+              <p className="text-[9px] text-slate-400 uppercase tracking-widest font-mono">{user?.userType || 'OPERATIONS'}</p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="bg-white/5 border border-white/10 hover:bg-red-600/20 hover:border-red-500/30 text-slate-300 hover:text-red-400 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+            >
+              LOGOUT
+            </button>
           </div>
         </div>
       </header>
+
+      {/* API Connection Warning Banner */}
+      {!apiOnline && (
+        <div className="bg-red-950/30 border-b border-red-500/20 py-3.5 px-6">
+          <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2 text-red-400 font-semibold">
+              <span>⚠️</span>
+              <span><strong>Connection Error:</strong> {apiErrorMsg}. Verify that the NestJS service is running at <code>http://localhost:3000</code>.</span>
+            </div>
+            <button
+              onClick={fetchDashboardData}
+              className="bg-red-500/20 hover:bg-red-500/30 text-red-300 px-4 py-1.5 rounded-lg font-bold border border-red-500/30 transition-all font-mono"
+            >
+              RETRY CONNECTION
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main Layout */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-6 flex flex-col gap-6">
@@ -214,7 +402,7 @@ export default function AdminDashboard() {
             onClick={() => setActiveTab('overview')}
             className={`px-4 py-2 rounded-lg text-xs font-semibold tracking-wider transition-all duration-300 ${
               activeTab === 'overview'
-                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-purple-500/10'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
@@ -224,7 +412,7 @@ export default function AdminDashboard() {
             onClick={() => setActiveTab('providers')}
             className={`px-4 py-2 rounded-lg text-xs font-semibold tracking-wider transition-all duration-300 ${
               activeTab === 'providers'
-                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-purple-500/10'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
@@ -234,7 +422,7 @@ export default function AdminDashboard() {
             onClick={() => setActiveTab('settings')}
             className={`px-4 py-2 rounded-lg text-xs font-semibold tracking-wider transition-all duration-300 ${
               activeTab === 'settings'
-                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-purple-500/10'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
@@ -244,7 +432,7 @@ export default function AdminDashboard() {
             onClick={() => setActiveTab('waitlist')}
             className={`px-4 py-2 rounded-lg text-xs font-semibold tracking-wider transition-all duration-300 ${
               activeTab === 'waitlist'
-                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-purple-500/10'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
@@ -261,41 +449,52 @@ export default function AdminDashboard() {
               <div className="glass-card p-5 rounded-2xl flex flex-col justify-between hover:border-blue-500/20 transition-all group">
                 <div>
                   <span className="text-[10px] text-slate-400 font-bold tracking-widest uppercase">Total GMV</span>
-                  <h3 className="text-2xl font-bold tracking-tight text-white mt-1">₹24,85,300</h3>
+                  <h3 className="text-2xl font-bold tracking-tight text-white mt-1">
+                    ₹{analytics.totalGMV?.toLocaleString('en-IN') || 0}
+                  </h3>
                 </div>
                 <div className="flex items-center gap-1.5 mt-4 text-xs font-semibold text-emerald-400">
-                  <span>+14.2%</span>
-                  <span className="text-slate-400 font-normal">vs last month</span>
+                  <span>LIVE</span>
+                  <span className="text-slate-400 font-normal">subscription volume</span>
                 </div>
               </div>
+              
               <div className="glass-card p-5 rounded-2xl flex flex-col justify-between hover:border-purple-500/20 transition-all group">
                 <div>
                   <span className="text-[10px] text-slate-400 font-bold tracking-widest uppercase">Platform Commission</span>
-                  <h3 className="text-2xl font-bold tracking-tight text-white mt-1">₹2,98,236</h3>
+                  <h3 className="text-2xl font-bold tracking-tight text-white mt-1">
+                    ₹{analytics.totalRevenue?.toLocaleString('en-IN') || 0}
+                  </h3>
                 </div>
                 <div className="flex items-center gap-1.5 mt-4 text-xs font-semibold text-purple-400">
-                  <span>12.0%</span>
-                  <span className="text-slate-400 font-normal">effective commission</span>
+                  <span>10%-15%</span>
+                  <span className="text-slate-400 font-normal">net platform cut</span>
                 </div>
               </div>
+
               <div className="glass-card p-5 rounded-2xl flex flex-col justify-between hover:border-amber-500/20 transition-all group">
                 <div>
-                  <span className="text-[10px] text-slate-400 font-bold tracking-widest uppercase">Total Subscriptions</span>
-                  <h3 className="text-2xl font-bold tracking-tight text-white mt-1">7,420</h3>
+                  <span className="text-[10px] text-slate-400 font-bold tracking-widest uppercase">Active Subscriptions</span>
+                  <h3 className="text-2xl font-bold tracking-tight text-white mt-1">
+                    {analytics.activeSubscriptions || 0} / {analytics.totalSubscriptions || 0}
+                  </h3>
                 </div>
                 <div className="flex items-center gap-1.5 mt-4 text-xs font-semibold text-amber-400">
-                  <span>88.2%</span>
-                  <span className="text-slate-400 font-normal">active completion rate</span>
+                  <span>{analytics.totalSubscriptions ? Math.round((analytics.activeSubscriptions / analytics.totalSubscriptions) * 100) : 0}%</span>
+                  <span className="text-slate-400 font-normal">active conversion</span>
                 </div>
               </div>
+
               <div className="glass-card p-5 rounded-2xl flex flex-col justify-between hover:border-pink-500/20 transition-all group">
                 <div>
-                  <span className="text-[10px] text-slate-400 font-bold tracking-widest uppercase">Verified Kitchens</span>
-                  <h3 className="text-2xl font-bold tracking-tight text-white mt-1">1,420</h3>
+                  <span className="text-[10px] text-slate-400 font-bold tracking-widest uppercase">Active Kitchens</span>
+                  <h3 className="text-2xl font-bold tracking-tight text-white mt-1">
+                    {analytics.activeProviders || 0}
+                  </h3>
                 </div>
                 <div className="flex items-center gap-1.5 mt-4 text-xs font-semibold text-pink-400">
-                  <span>+28</span>
-                  <span className="text-slate-400 font-normal">pending verification</span>
+                  <span>{providers.filter(p => p.verificationStatus === 'pending').length} pending</span>
+                  <span className="text-slate-400 font-normal">audit queues</span>
                 </div>
               </div>
             </div>
@@ -308,13 +507,13 @@ export default function AdminDashboard() {
                 <div className="flex items-center justify-between mb-6">
                   <div>
                     <h4 className="text-sm font-bold text-slate-200">GROSS MERCHANDISE VALUE (GMV)</h4>
-                    <p className="text-xs text-slate-400">Monthly subscription transactions</p>
+                    <p className="text-xs text-slate-400">Monthly subscription transactions trend</p>
                   </div>
                   <span className="text-xs bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded text-blue-400 font-bold">ANNUAL VIEW</span>
                 </div>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={monthlyStats} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <AreaChart data={getTrendData()} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                       <defs>
                         <linearGradient id="gmvGrad" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
@@ -337,8 +536,8 @@ export default function AdminDashboard() {
               {/* Customer Types Pie Chart */}
               <div className="glass-card p-5 rounded-2xl flex flex-col justify-between">
                 <div>
-                  <h4 className="text-sm font-bold text-slate-200">CUSTOMER BREAKDOWN</h4>
-                  <p className="text-xs text-slate-400">Subscription activity distribution</p>
+                  <h4 className="text-sm font-bold text-slate-200">KPI RATIOS</h4>
+                  <p className="text-xs text-slate-400">User signups vs subscriptions</p>
                 </div>
                 <div className="h-44 relative my-2">
                   <ResponsiveContainer width="100%" height="100%">
@@ -359,8 +558,8 @@ export default function AdminDashboard() {
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
-                    <p className="text-lg font-bold text-white">10.2k</p>
-                    <p className="text-[8px] text-slate-400 font-bold uppercase">Total Users</p>
+                    <p className="text-lg font-bold text-white">{analytics.activeCustomers || 0}</p>
+                    <p className="text-[7px] text-slate-400 font-bold uppercase">Customers</p>
                   </div>
                 </div>
                 <div className="flex flex-col gap-2 mt-2">
@@ -383,12 +582,12 @@ export default function AdminDashboard() {
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h4 className="text-sm font-bold text-slate-200">PLATFORM REVENUE GROWTH</h4>
-                  <p className="text-xs text-slate-400">Net platform income (10-15% commission base)</p>
+                  <p className="text-xs text-slate-400">Net platform income (Monthly aggregated platform commission)</p>
                 </div>
               </div>
               <div className="h-48">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={monthlyStats} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <BarChart data={getTrendData()} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
                     <XAxis dataKey="month" stroke="#9ca3af" fontSize={10} />
                     <YAxis stroke="#9ca3af" fontSize={10} />
@@ -417,57 +616,65 @@ export default function AdminDashboard() {
                 <thead>
                   <tr className="border-b border-white/5 text-slate-400 font-semibold">
                     <th className="py-3 px-4">PROVIDER ID</th>
-                    <th className="py-3 px-4">BRAND & OWNER</th>
-                    <th className="py-3 px-4">PINCODE</th>
-                    <th className="py-3 px-4">SPECIALTIES</th>
-                    <th className="py-3 px-4">FSSAI REGISTER</th>
+                    <th className="py-3 px-4">BRAND</th>
+                    <th className="py-3 px-4">FSSAI / GST / PAN</th>
                     <th className="py-3 px-4">COMMISSION</th>
+                    <th className="py-3 px-4">DELIVERIES</th>
+                    <th className="py-3 px-4">ACTIVE SUBS</th>
                     <th className="py-3 px-4">STATUS</th>
                     <th className="py-3 px-4 text-right">ACTION</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 text-slate-200 font-medium">
-                  {providers.map(p => (
-                    <tr key={p.id} className="hover:bg-white/5 transition-all">
-                      <td className="py-3.5 px-4 text-slate-400 font-semibold">{p.id}</td>
-                      <td className="py-3.5 px-4">
-                        <div>
-                          <p className="font-bold text-slate-200">{p.name}</p>
-                          <p className="text-[10px] text-slate-400">{p.owner}</p>
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4 font-mono">{p.pincode}</td>
-                      <td className="py-3.5 px-4">
-                        <div className="flex flex-wrap gap-1">
-                          {p.specialties.map((s, idx) => (
-                            <span key={idx} className="bg-slate-800 text-[9px] px-1.5 py-0.5 rounded">{s}</span>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4 font-mono text-slate-300">{p.fssai}</td>
-                      <td className="py-3.5 px-4 font-bold text-slate-100">{p.commissionRate}%</td>
-                      <td className="py-3.5 px-4">
-                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
-                          p.status === 'Verified' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                          p.status === 'Suspended' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
-                          'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                        }`}>
-                          {p.status.toUpperCase()}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
-                        <button
-                          onClick={() => {
-                            setSelectedProvider(p);
-                            setAuditCommission(String(p.commissionRate));
-                          }}
-                          className="bg-blue-600/10 border border-blue-500/30 text-blue-400 px-3 py-1 rounded hover:bg-blue-600 hover:text-white transition-all text-[10px] font-bold"
-                        >
-                          AUDIT & EDIT
-                        </button>
+                  {providers.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-8 text-center text-slate-500 font-semibold">
+                        No tiffin providers found in database.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    providers.map(p => (
+                      <tr key={p.id} className="hover:bg-white/5 transition-all">
+                        <td className="py-3.5 px-4 text-slate-400 font-mono text-[10px]">{p.id.substring(0, 8)}...</td>
+                        <td className="py-3.5 px-4">
+                          <div>
+                            <p className="font-bold text-slate-200">{p.businessName}</p>
+                            <p className="text-[10px] text-slate-400">{p.description || 'No description provided'}</p>
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <div className="font-mono text-[10px] text-slate-300 flex flex-col gap-0.5">
+                            <span>FSSAI: {p.fssaiNumber}</span>
+                            <span>GST: {p.gstNumber}</span>
+                            <span>PAN: {p.panNumber}</span>
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4 font-bold text-slate-100">{p.commissionRate}%</td>
+                        <td className="py-3.5 px-4 font-mono text-slate-300">{p.mealsDelivered} meals</td>
+                        <td className="py-3.5 px-4 font-bold text-blue-400">{p.activeSubscribers}</td>
+                        <td className="py-3.5 px-4">
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
+                            p.verificationStatus === 'approved' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                            p.verificationStatus === 'suspended' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
+                            'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                          }`}>
+                            {p.verificationStatus.toUpperCase()}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          <button
+                            onClick={() => {
+                              setSelectedProvider(p);
+                              setAuditCommission(String(p.commissionRate));
+                            }}
+                            className="bg-blue-600/10 border border-blue-500/30 text-blue-400 px-3 py-1 rounded hover:bg-blue-600 hover:text-white transition-all text-[10px] font-bold"
+                          >
+                            AUDIT & EDIT
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -478,30 +685,36 @@ export default function AdminDashboard() {
           <div className="glass-card p-5 rounded-2xl flex flex-col gap-4">
             <div>
               <h4 className="text-sm font-bold text-slate-200">Global SaaS System Configurations</h4>
-              <p className="text-xs text-slate-400">Modify run-time rules, wallet limits, and OTP timings platform-wide</p>
+              <p className="text-xs text-slate-400">Modify run-time rules, commission percentages, and min order limits platform-wide</p>
             </div>
             
             <div className="grid grid-cols-1 gap-4 mt-2">
-              {settings.map(s => (
-                <div key={s.key} className="flex items-center justify-between p-4 bg-[#0a0d1e]/80 border border-white/5 rounded-xl hover:border-white/10 transition-all">
-                  <div className="flex flex-col gap-1 max-w-lg">
-                    <span className="text-xs font-mono font-bold text-blue-400 tracking-wide">{s.key}</span>
-                    <span className="text-xs text-slate-400">{s.description}</span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <span className="font-mono text-sm bg-slate-800 px-3 py-1 rounded text-white font-bold">{s.value}</span>
-                    <button
-                      onClick={() => {
-                        setEditingSetting(s);
-                        setEditingValue(s.value);
-                      }}
-                      className="bg-white/5 border border-white/10 hover:bg-white/10 text-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
-                    >
-                      EDIT
-                    </button>
-                  </div>
+              {settings.length === 0 ? (
+                <div className="py-8 text-center text-slate-500 font-semibold">
+                  No configuration settings found in database.
                 </div>
-              ))}
+              ) : (
+                settings.map(s => (
+                  <div key={s.id} className="flex items-center justify-between p-4 bg-[#0a0d1e]/80 border border-white/5 rounded-xl hover:border-white/10 transition-all">
+                    <div className="flex flex-col gap-1 max-w-lg">
+                      <span className="text-xs font-mono font-bold text-blue-400 tracking-wide">{s.key}</span>
+                      <span className="text-xs text-slate-400">{s.description || 'System setting variable'}</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="font-mono text-sm bg-slate-800 px-3 py-1 rounded text-white font-bold">{String(s.value)}</span>
+                      <button
+                        onClick={() => {
+                          setEditingSetting(s);
+                          setEditingValue(String(s.value));
+                        }}
+                        className="bg-white/5 border border-white/10 hover:bg-white/10 text-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                      >
+                        EDIT
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         )}
@@ -518,47 +731,55 @@ export default function AdminDashboard() {
                 <thead>
                   <tr className="border-b border-white/5 text-slate-400 font-semibold">
                     <th className="py-3 px-4">PINCODE</th>
-                    <th className="py-3 px-4">AREA NAME</th>
+                    <th className="py-3 px-4">CITY/LOCALITY</th>
                     <th className="py-3 px-4">WAITLISTED CUSTOMERS</th>
                     <th className="py-3 px-4">LAUNCH STATUS</th>
                     <th className="py-3 px-4 text-right">ACTION</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 text-slate-200 font-medium">
-                  {waitlist.map(w => (
-                    <tr key={w.pincode} className="hover:bg-white/5 transition-all">
-                      <td className="py-3.5 px-4 font-mono font-bold text-slate-200">{w.pincode}</td>
-                      <td className="py-3.5 px-4 text-slate-300">{w.location}</td>
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-100">{w.count}</span>
-                          <div className="w-20 bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                            <div className="bg-amber-500 h-full rounded-full" style={{ width: `${Math.min(100, (w.count / 300) * 100)}%` }}></div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
-                          w.status === 'Notified' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                          'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                        }`}>
-                          {w.status.toUpperCase()}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
-                        {w.status === 'Active' ? (
-                          <button
-                            onClick={() => handleNotifyWaitlist(w.pincode)}
-                            className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-3 py-1 rounded text-[10px] font-bold shadow-md shadow-emerald-500/10"
-                          >
-                            LAUNCH & NOTIFY
-                          </button>
-                        ) : (
-                          <span className="text-slate-500 font-semibold italic text-[10px]">Service Active</span>
-                        )}
+                  {waitlist.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-slate-500 font-semibold">
+                        No waitlist entries registered.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    waitlist.map(w => (
+                      <tr key={w.pincode} className="hover:bg-white/5 transition-all">
+                        <td className="py-3.5 px-4 font-mono font-bold text-slate-200">{w.pincode}</td>
+                        <td className="py-3.5 px-4 text-slate-300">{w.location}</td>
+                        <td className="py-3.5 px-4">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-100">{w.count}</span>
+                            <div className="w-20 bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                              <div className="bg-amber-500 h-full rounded-full" style={{ width: `${Math.min(100, (w.count / 10) * 100)}%` }}></div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
+                            w.status === 'Notified' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                            'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                          }`}>
+                            {w.status.toUpperCase()}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          {w.status === 'Active' ? (
+                            <button
+                              onClick={() => handleNotifyWaitlist(w.pincode)}
+                              className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-3 py-1 rounded text-[10px] font-bold shadow-md shadow-emerald-500/10"
+                            >
+                              LAUNCH & NOTIFY
+                            </button>
+                          ) : (
+                            <span className="text-slate-500 font-semibold italic text-[10px]">Notified / Active</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -572,30 +793,21 @@ export default function AdminDashboard() {
         <div className="fixed inset-0 z-50 bg-[#020207]/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="glass-card max-w-md w-full rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-[#0d1026]">
             
-            <div className="relative h-44 bg-cover bg-center" style={{ backgroundImage: `url(${selectedProvider.kitchenPhoto})` }}>
-              <div className="absolute inset-0 bg-gradient-to-t from-[#0d1026] via-[#0d1026]/40 to-transparent"></div>
-              <button 
-                onClick={() => setSelectedProvider(null)}
-                className="absolute top-4 right-4 bg-black/40 text-white hover:bg-black/60 rounded-full w-8 h-8 flex items-center justify-center font-bold text-xs"
-              >
-                ✕
-              </button>
-              <div className="absolute bottom-4 left-6">
-                <span className="bg-blue-600 text-white text-[9px] font-bold px-2 py-0.5 rounded">FSSAI AUDIT PENDING</span>
-                <h3 className="text-lg font-bold text-white mt-1">{selectedProvider.name}</h3>
-                <p className="text-xs text-slate-300 font-medium">Owner: {selectedProvider.owner}</p>
-              </div>
+            <div className="p-6 border-b border-white/5 bg-gradient-to-tr from-[#121633] to-[#1d234d]">
+              <span className="bg-blue-600 text-white text-[9px] font-bold px-2 py-0.5 rounded">FSSAI AUDIT PENDING</span>
+              <h3 className="text-lg font-bold text-white mt-2">{selectedProvider.businessName}</h3>
+              <p className="text-xs text-slate-300 font-medium">FSSAI License: {selectedProvider.fssaiNumber}</p>
             </div>
 
             <div className="p-6 flex flex-col gap-4">
               <div className="grid grid-cols-2 gap-4 text-xs">
                 <div>
-                  <span className="text-slate-400">Pincode Zone:</span>
-                  <p className="font-bold text-slate-200 mt-0.5">{selectedProvider.pincode}</p>
+                  <span className="text-slate-400">GST Registration:</span>
+                  <p className="font-mono font-bold text-slate-200 mt-0.5">{selectedProvider.gstNumber}</p>
                 </div>
                 <div>
-                  <span className="text-slate-400">License FSSAI:</span>
-                  <p className="font-mono font-bold text-slate-200 mt-0.5">{selectedProvider.fssai}</p>
+                  <span className="text-slate-400">PAN Registration:</span>
+                  <p className="font-mono font-bold text-slate-200 mt-0.5">{selectedProvider.panNumber}</p>
                 </div>
               </div>
 
@@ -605,23 +817,29 @@ export default function AdminDashboard() {
                   type="number"
                   value={auditCommission}
                   onChange={(e) => setAuditCommission(e.target.value)}
-                  className="bg-slate-900 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
-                  placeholder="e.g. 12"
+                  className="bg-slate-900 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 font-sans"
+                  placeholder="e.g. 15"
                 />
               </div>
 
               <div className="flex items-center gap-2 mt-2">
                 <button
-                  onClick={() => handleUpdateStatus(selectedProvider.id, 'Verified', Number(auditCommission))}
-                  className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white py-2 rounded-lg text-xs font-bold transition-all shadow-md shadow-emerald-500/10"
+                  onClick={() => handleUpdateStatus(selectedProvider.id, 'approved', Number(auditCommission))}
+                  className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white py-2.5 rounded-lg text-xs font-bold transition-all shadow-md shadow-emerald-500/10"
                 >
-                  VERIFY & ACTIVATE
+                  VERIFY & APPROVE
                 </button>
                 <button
-                  onClick={() => handleUpdateStatus(selectedProvider.id, 'Suspended')}
-                  className="bg-rose-950/20 border border-rose-500/30 hover:bg-rose-600 text-rose-400 hover:text-white px-4 py-2 rounded-lg text-xs font-bold transition-all"
+                  onClick={() => handleUpdateStatus(selectedProvider.id, 'suspended')}
+                  className="bg-rose-950/20 border border-rose-500/30 hover:bg-rose-600 text-rose-400 hover:text-white px-4 py-2.5 rounded-lg text-xs font-bold transition-all"
                 >
                   SUSPEND
+                </button>
+                <button
+                  onClick={() => setSelectedProvider(null)}
+                  className="bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 px-4 py-2.5 rounded-lg text-xs font-bold transition-all"
+                >
+                  CLOSE
                 </button>
               </div>
             </div>
@@ -639,28 +857,28 @@ export default function AdminDashboard() {
               <p className="text-xs text-blue-400 font-mono mt-1 font-bold">{editingSetting.key}</p>
             </div>
             
-            <p className="text-xs text-slate-400">{editingSetting.description}</p>
+            <p className="text-xs text-slate-400">{editingSetting.description || 'System configuration variable'}</p>
             
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-300">Parameter Value</label>
+              <label className="text-xs font-semibold text-slate-300 font-sans">Parameter Value</label>
               <input
                 type="text"
                 value={editingValue}
                 onChange={(e) => setEditingValue(e.target.value)}
-                className="bg-slate-900 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+                className="bg-slate-900 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 font-mono font-bold"
               />
             </div>
 
             <div className="flex items-center gap-2 mt-2">
               <button
                 onClick={handleSaveSetting}
-                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-2 rounded-lg text-xs font-bold transition-all shadow-md shadow-blue-500/10"
+                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-2.5 rounded-lg text-xs font-bold transition-all shadow-md shadow-blue-500/10"
               >
                 SAVE PARAMETER
               </button>
               <button
                 onClick={() => setEditingSetting(null)}
-                className="bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 px-4 py-2 rounded-lg text-xs font-bold transition-all"
+                className="bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 px-4 py-2.5 rounded-lg text-xs font-bold transition-all"
               >
                 CANCEL
               </button>

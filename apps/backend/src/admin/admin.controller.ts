@@ -93,6 +93,13 @@ export class AdminController {
   // WAITLIST OPERATIONS
   // ==========================================
 
+  @Get('waitlist')
+  @ApiOperation({ summary: 'Get waitlist regions summary (Admins only)' })
+  @ApiResponse({ status: 200, description: 'Waitlist summary retrieved successfully' })
+  async getWaitlistSummary() {
+    return this.adminService.getWaitlistSummary();
+  }
+
   @Post('waitlist/convert')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Trigger notifications to all waitlisted users in a pincode when provider launches' })
