@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: tdc_postgres
+    environment:
+      POSTGRES_USER: tdc_user
+      POSTGRES_PASSWORD: tdc_password_dev
+      POSTGRES_DB: tdc_db
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U tdc_user -d tdc_db']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tdc_network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: tdc_redis
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tdc_network
+
+  # Meilisearch for Full-Text Search
+  meilisearch:
+    image: getmeili/meilisearch:v1.4
+    container_name: tdc_meilisearch
+    environment:
+      MEILI_MASTER_KEY: tdc_master_key_dev
+      MEILI_ENV: development
+    ports:
+      - '7700:7700'
+    volumes:
+      - meilisearch_data:/meili_data
+    networks:
+      - tdc_network
+
+  # Adminer for Database Management (optional)
+  adminer:
+    image: adminer:latest
+    container_name: tdc_adminer
+    ports:
+      - '8080:8080'
+    depends_on:
+      - postgres
+    networks:
+      - tdc_network
+
+  # Redis Commander for Redis Management (optional)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: tdc_redis_commander
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    ports:
+      - '8081:8081'
+    depends_on:
+      - redis
+    networks:
+      - tdc_network
+
+volumes:
+  postgres_data:
+  redis_data:
+  meilisearch_data:
+
+networks:
+  tdc_network:
+    driver: bridge

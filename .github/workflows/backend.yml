@@ -1,0 +1,105 @@
+name: Backend CI/CD
+
+on:
+  push:
+    branches: ['main', 'develop']
+    paths:
+      - 'apps/backend/**'
+      - 'packages/**'
+      - '.github/workflows/backend.yml'
+  pull_request:
+    branches: ['main', 'develop']
+    paths:
+      - 'apps/backend/**'
+      - 'packages/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: tdc_user
+          POSTGRES_PASSWORD: tdc_password_test
+          POSTGRES_DB: tdc_db_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint --workspace=@tdc/backend
+
+      - name: Run tests
+        run: npm run test:cov --workspace=@tdc/backend
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USERNAME: tdc_user
+          DB_PASSWORD: tdc_password_test
+          DB_NAME: tdc_db_test
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./apps/backend/coverage/coverage-final.json
+          flags: backend
+          fail_ci_if_error: false
+
+      - name: Build application
+        run: npm run build --workspace=@tdc/backend
+
+      - name: Build Docker image
+        if: github.event_name == 'push'
+        run: |
+          docker build -t tdc-backend:${{ github.sha }} apps/backend/
+          docker build -t tdc-backend:latest apps/backend/
+
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run npm audit
+        run: npm audit --audit-level=moderate --workspaces
+        continue-on-error: true
+
+      - name: OWASP Dependency Check
+        uses: jeremylong/DependencyCheck_Action@main
+        with:
+          project: 'TDC Backend'
+          path: '.'
+          format: 'SARIF'
+          args: >
+            --enableExperimental
+            --enableRetired
+        continue-on-error: true

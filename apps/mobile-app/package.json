@@ -1,0 +1,14 @@
+{
+  "name": "@tdc/mobile-app",
+  "version": "1.0.0",
+  "description": "The DABBA Company - Customer Mobile App (Flutter)",
+  "license": "PROPRIETARY",
+  "scripts": {
+    "dev": "flutter run",
+    "build:apk": "flutter build apk --release",
+    "build:ios": "flutter build ios --release",
+    "build:web": "flutter build web --release",
+    "format": "dart format lib/",
+    "analyze": "dart analyze"
+  }
+}

@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tdc-admin-dashboard
+  namespace: default
+  labels:
+    app: tdc-admin-dashboard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tdc-admin-dashboard
+  template:
+    metadata:
+      labels:
+        app: tdc-admin-dashboard
+    spec:
+      containers:
+        - name: admin-dashboard
+          image: tdc-admin-dashboard:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NEXT_PUBLIC_API_URL
+              value: "http://tdc-backend:3000"
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tdc-admin-dashboard
+  namespace: default
+spec:
+  selector:
+    app: tdc-admin-dashboard
+  ports:
+    - protocol: TCP
+      port: 3001
+      targetPort: 3000
+  type: ClusterIP
