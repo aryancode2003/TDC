@@ -9,8 +9,21 @@ async function bootstrap(): Promise<void> {
   const configService = app.get(ConfigService);
 
   // Enable CORS
+  const corsOrigins = configService.get<string>('ALLOWED_ORIGINS');
   app.enableCors({
-    origin: ['http://localhost:3001', 'http://localhost:3002'],
+    origin: (origin, callback) => {
+      // Allow if no origin (e.g. mobile apps, postman) or if it's localhost or vercel
+      if (
+        !origin || 
+        origin.startsWith('http://localhost') || 
+        origin.endsWith('.vercel.app') ||
+        (corsOrigins && corsOrigins.split(',').includes(origin))
+      ) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   });
 
