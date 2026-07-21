@@ -42,21 +42,30 @@ import { HttpLoggingInterceptor } from './common/interceptors/http-logging.inter
     // Database
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get<string>('DB_HOST'),
-        port: configService.get<number>('DB_PORT'),
-        username: configService.get<string>('DB_USERNAME'),
-        password: configService.get<string>('DB_PASSWORD'),
-        database: configService.get<string>('DB_NAME'),
-        entities: ['dist/database/entities/**/*.entity{.ts,.js}'],
-        migrations: ['dist/database/migrations/*{.ts,.js}'],
-        synchronize: configService.get<boolean>('DB_SYNCHRONIZE') || false,
-        logging: configService.get<boolean>('DB_LOGGING') || false,
-        migrationsRun: false,
-        dropSchema: false,
-        ssl: configService.get<string>('NODE_ENV') === 'production',
-      }),
+      useFactory: (configService: ConfigService) => {
+        const databaseUrl = configService.get<string>('DATABASE_URL');
+        return {
+          type: 'postgres',
+          ...(databaseUrl
+            ? { url: databaseUrl }
+            : {
+                host: configService.get<string>('DB_HOST', 'localhost'),
+                port: configService.get<number>('DB_PORT', 5432),
+                username: configService.get<string>('DB_USERNAME', 'postgres'),
+                password: configService.get<string>('DB_PASSWORD', 'postgres'),
+                database: configService.get<string>('DB_NAME', 'postgres'),
+              }),
+          entities: ['dist/database/entities/**/*.entity{.ts,.js}'],
+          migrations: ['dist/database/migrations/*{.ts,.js}'],
+          synchronize: configService.get<boolean>('DB_SYNCHRONIZE') || false,
+          logging: configService.get<boolean>('DB_LOGGING') || false,
+          migrationsRun: false,
+          dropSchema: false,
+          ssl: configService.get<string>('NODE_ENV') === 'production'
+            ? { rejectUnauthorized: false }
+            : false,
+        };
+      },
     }),
 
     // Feature modules
