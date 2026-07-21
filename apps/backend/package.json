@@ -8,6 +8,7 @@
     "dev": "nest start --watch",
     "start": "node dist/main",
     "build": "nest build",
+    "db:seed": "node dist/seed",
     "format": "prettier --write \"src/**/*.ts\"",
     "lint": "eslint \"src/**/*.ts\"",
     "test": "jest",
