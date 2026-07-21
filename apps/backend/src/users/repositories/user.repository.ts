@@ -17,20 +17,24 @@ export class UserRepository extends Repository<User> {
    * Find user by email
    */
   async findByEmail(email: string): Promise<User | null> {
-    return this.findOne({
-      where: { email },
-      relations: ['role'],
-    });
+    return this.createQueryBuilder('user')
+      .addSelect('user.passwordHash')
+      .leftJoinAndSelect('user.role', 'role')
+      .where('user.email = :email', { email })
+      .andWhere('user.deletedAt IS NULL')
+      .getOne();
   }
 
   /**
    * Find user by phone
    */
   async findByPhone(phone: string): Promise<User | null> {
-    return this.findOne({
-      where: { phone },
-      relations: ['role'],
-    });
+    return this.createQueryBuilder('user')
+      .addSelect('user.passwordHash')
+      .leftJoinAndSelect('user.role', 'role')
+      .where('user.phone = :phone', { phone })
+      .andWhere('user.deletedAt IS NULL')
+      .getOne();
   }
 
   /**
