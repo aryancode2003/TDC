@@ -40,24 +40,24 @@ export class AiService {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const historicalOrders = await manager.createQueryBuilder(Order, 'order')
+    const historicalOrders = await manager.createQueryBuilder('Order', 'order')
       .where('order.providerId = :providerId', { providerId })
       .andWhere('order.orderDate >= :thirtyDaysAgo', { thirtyDaysAgo })
       .andWhere('order.status != :cancelledStatus', { cancelledStatus: 'cancelled' })
       .getMany();
 
     // 2. Query active subscriptions to establish the baseline demand
-    const activeSubscriptions = await manager.find(Subscription, {
+    const activeSubscriptions = await manager.find<Subscription>('Subscription', {
       where: { providerId, status: 'active' }
     });
 
     // 3. Find service areas to check pending waitlist demand
-    const serviceAreas = await manager.find(ServiceArea, { where: { providerId, isActive: true } });
+    const serviceAreas = await manager.find<ServiceArea>('ServiceArea', { where: { providerId, isActive: true } });
     const pincodes = serviceAreas.map(sa => sa.pincode);
     
     let pendingWaitlistCount = 0;
     if (pincodes.length > 0) {
-      pendingWaitlistCount = await manager.createQueryBuilder(Waitlist, 'waitlist')
+      pendingWaitlistCount = await manager.createQueryBuilder('Waitlist', 'waitlist')
         .where('waitlist.pincode IN (:...pincodes)', { pincodes })
         .andWhere('waitlist.status = :pending', { pending: 'pending' })
         .getCount();
@@ -416,7 +416,7 @@ export class AiService {
     }
 
     // Query active providers and their meals
-    const providers = await manager.createQueryBuilder(Provider, 'provider')
+    const providers = await manager.createQueryBuilder('Provider', 'provider')
       .where('provider.id IN (:...providerIds)', { providerIds })
       .andWhere('provider.verificationStatus = :approved', { approved: 'approved' })
       .getMany();
@@ -432,7 +432,7 @@ export class AiService {
       };
     }
 
-    const meals = await manager.createQueryBuilder(Meal, 'meal')
+    const meals = await manager.createQueryBuilder('Meal', 'meal')
       .where('meal.providerId IN (:...verifiedProviderIds)', { verifiedProviderIds })
       .andWhere('meal.isAvailable = :available', { available: true })
       .getMany();

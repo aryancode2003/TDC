@@ -70,7 +70,7 @@ export class AdminService {
     const manager = this.dataSource.manager;
 
     // Aggregate payment completions
-    const paymentSum = await manager.createQueryBuilder(Payment, 'payment')
+    const paymentSum = await manager.createQueryBuilder('Payment', 'payment')
       .select('SUM(payment.amount)', 'gmv')
       .addSelect('SUM(payment.platformCommission)', 'revenue')
       .where('payment.status = :status', { status: 'completed' })
@@ -90,9 +90,9 @@ export class AdminService {
       .where('customer.activeSubscriptions > 0');
     const activeCustomersCount = await qbCust.getCount();
 
-    const totalSubscriptions = await manager.count(Subscription);
-    const activeSubscriptions = await manager.count(Subscription, { where: { status: 'active' } });
-    const totalOrders = await manager.count(Order);
+    const totalSubscriptions = await manager.count('Subscription');
+    const activeSubscriptions = await manager.count('Subscription', { where: { status: 'active' } });
+    const totalOrders = await manager.count('Order');
     
     const waitlistCount = await this.waitlistRepository.count({ where: { status: 'pending' } });
 
@@ -134,7 +134,7 @@ export class AdminService {
 
   async getWaitlistSummary(): Promise<any[]> {
     const manager = this.dataSource.manager;
-    const results = await manager.createQueryBuilder(Waitlist, 'waitlist')
+    const results = await manager.createQueryBuilder('Waitlist', 'waitlist')
       .select('waitlist.pincode', 'pincode')
       .addSelect('MAX(waitlist.city)', 'locality')
       .addSelect('COUNT(waitlist.id)', 'count')
