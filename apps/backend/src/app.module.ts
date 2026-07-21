@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { join } from 'path';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -55,10 +56,11 @@ import { HttpLoggingInterceptor } from './common/interceptors/http-logging.inter
                 password: configService.get<string>('DB_PASSWORD', 'postgres'),
                 database: configService.get<string>('DB_NAME', 'postgres'),
               }),
-          entities: ['dist/database/entities/**/*.entity{.ts,.js}'],
-          migrations: ['dist/database/migrations/*{.ts,.js}'],
-          synchronize: configService.get<boolean>('DB_SYNCHRONIZE') || false,
-          logging: configService.get<boolean>('DB_LOGGING') || false,
+          entities: [join(__dirname, 'database/entities/**/*.entity{.ts,.js}').replace(/\\/g, '/')],
+          migrations: [join(__dirname, 'database/migrations/*{.ts,.js}').replace(/\\/g, '/')],
+          autoLoadEntities: true,
+          synchronize: configService.get<string>('DB_SYNCHRONIZE') === 'true',
+          logging: configService.get<string>('DB_LOGGING') === 'true',
           migrationsRun: false,
           dropSchema: false,
           ssl: configService.get<string>('NODE_ENV') === 'production'

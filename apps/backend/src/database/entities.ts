@@ -79,17 +79,7 @@ export class Permission extends BaseEntity {
   isActive: boolean;
 }
 
-/**
- * RolePermission
- * Junction table for Role-Permission relationship
- */
-export class RolePermission extends BaseEntity {
-  @Column()
-  roleId: string;
 
-  @Column()
-  permissionId: string;
-}
 
 /**
  * User

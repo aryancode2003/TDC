@@ -7,7 +7,7 @@ export { BaseEntity } from './base.entity';
 
 // User & Role Management
 export { User } from './user.entity';
-export { Role, Permission, RolePermission } from './role.entity';
+export { Role, Permission } from './role.entity';
 
 // Provider & Customer
 export { Provider, Customer } from './provider.entity';

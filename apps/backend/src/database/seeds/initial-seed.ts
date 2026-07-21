@@ -12,7 +12,6 @@ import {
   User,
   Role,
   Permission,
-  RolePermission,
   Provider,
   Customer,
   MealCategory,
@@ -36,7 +35,7 @@ export async function seedDatabase(dataSource: DataSource): Promise<void> {
 
     // 1. Seed Roles
     console.log('📋 Seeding roles...');
-    const roleRepository = dataSource.getRepository(Role);
+    const roleRepository = dataSource.getRepository('Role');
     const superAdminRole = roleRepository.create({
       name: 'Super Admin',
       description: 'Platform super administrator',
@@ -60,7 +59,7 @@ export async function seedDatabase(dataSource: DataSource): Promise<void> {
 
     // 2. Seed Permissions
     console.log('📝 Seeding permissions...');
-    const permissionRepository = dataSource.getRepository(Permission);
+    const permissionRepository = dataSource.getRepository('Permission');
     const permissions = [
       // User permissions
       { name: 'Create User', resource: 'users', action: 'create' },
@@ -102,50 +101,28 @@ export async function seedDatabase(dataSource: DataSource): Promise<void> {
 
     // 3. Link permissions to roles (simplified)
     console.log('🔗 Linking permissions to roles...');
-    const rolePermissionRepository = dataSource.getRepository(RolePermission);
-    const rolePermissions = [];
 
     // Super admin gets all permissions
-    for (const permission of savedPermissions) {
-      rolePermissions.push(
-        rolePermissionRepository.create({
-          roleId: superAdminRole.id,
-          permissionId: permission.id,
-        }),
-      );
-    }
+    superAdminRole.permissions = savedPermissions;
+    await roleRepository.save(superAdminRole);
 
     // Partner gets provider-related permissions
     const partnerPermissions = savedPermissions.filter((p) =>
       ['providers', 'menus', 'orders', 'payments'].includes(p.resource),
     );
-    for (const permission of partnerPermissions) {
-      rolePermissions.push(
-        rolePermissionRepository.create({
-          roleId: partnerRole.id,
-          permissionId: permission.id,
-        }),
-      );
-    }
+    partnerRole.permissions = partnerPermissions;
+    await roleRepository.save(partnerRole);
 
     // Customer gets order and payment permissions
     const customerPermissions = savedPermissions.filter((p) =>
       ['orders', 'payments'].includes(p.resource),
     );
-    for (const permission of customerPermissions) {
-      rolePermissions.push(
-        rolePermissionRepository.create({
-          roleId: customerRole.id,
-          permissionId: permission.id,
-        }),
-      );
-    }
-
-    await rolePermissionRepository.save(rolePermissions);
+    customerRole.permissions = customerPermissions;
+    await roleRepository.save(customerRole);
 
     // 4. Seed Admin User
     console.log('👤 Seeding admin user...');
-    const userRepository = dataSource.getRepository(User);
+    const userRepository = dataSource.getRepository('User');
     const passwordHash = await bcrypt.hash('Admin@123', 10);
     const adminUser = userRepository.create({
       email: 'admin@thedabbacompany.com',
@@ -164,7 +141,7 @@ export async function seedDatabase(dataSource: DataSource): Promise<void> {
 
     // 5. Seed Sample Providers
     console.log('🍛 Seeding sample providers...');
-    const providerRepository = dataSource.getRepository(Provider);
+    const providerRepository = dataSource.getRepository('Provider');
 
     const sampleProviders = [
       {
@@ -230,7 +207,7 @@ export async function seedDatabase(dataSource: DataSource): Promise<void> {
       await providerRepository.save(provider);
 
       // Add service areas
-      const serviceAreaRepository = dataSource.getRepository(ServiceArea);
+      const serviceAreaRepository = dataSource.getRepository('ServiceArea');
       await serviceAreaRepository.save({
         providerId: provider.id,
         pincode: providerData.pincode,
@@ -241,7 +218,7 @@ export async function seedDatabase(dataSource: DataSource): Promise<void> {
       });
 
       // Add meal categories
-      const mealCategoryRepository = dataSource.getRepository(MealCategory);
+      const mealCategoryRepository = dataSource.getRepository('MealCategory');
       const categories = [
         {
           name: 'Breakfast',
@@ -268,7 +245,7 @@ export async function seedDatabase(dataSource: DataSource): Promise<void> {
       );
 
       // Add sample meals
-      const mealRepository = dataSource.getRepository(Meal);
+      const mealRepository = dataSource.getRepository('Meal');
       const sampleMeals = [
         {
           categoryId: savedCategories[0].id,
@@ -305,7 +282,7 @@ export async function seedDatabase(dataSource: DataSource): Promise<void> {
       );
 
       // Add subscription plans
-      const planRepository = dataSource.getRepository(SubscriptionPlan);
+      const planRepository = dataSource.getRepository('SubscriptionPlan');
       await planRepository.save([
         planRepository.create({
           providerId: provider.id,
@@ -328,7 +305,7 @@ export async function seedDatabase(dataSource: DataSource): Promise<void> {
       ]);
 
       // Add delivery slots
-      const deliverySlotRepository = dataSource.getRepository(DeliverySlot);
+      const deliverySlotRepository = dataSource.getRepository('DeliverySlot');
       await deliverySlotRepository.save([
         deliverySlotRepository.create({
           providerId: provider.id,
@@ -369,7 +346,7 @@ export async function seedDatabase(dataSource: DataSource): Promise<void> {
 
     // 6. Seed Sample Customers
     console.log('👥 Seeding sample customers...');
-    const customerRepository = dataSource.getRepository(Customer);
+    const customerRepository = dataSource.getRepository('Customer');
 
     for (let i = 1; i <= 5; i++) {
       const customerUser = userRepository.create({
@@ -399,7 +376,7 @@ export async function seedDatabase(dataSource: DataSource): Promise<void> {
       await customerRepository.save(customer);
 
       // Add address
-      const addressRepository = dataSource.getRepository(Address);
+      const addressRepository = dataSource.getRepository('Address');
       await addressRepository.save({
         userId: savedUser.id,
         type: 'home',
@@ -414,7 +391,7 @@ export async function seedDatabase(dataSource: DataSource): Promise<void> {
 
     // 7. Seed System Settings
     console.log('⚙️ Seeding system settings...');
-    const settingRepository = dataSource.getRepository(SystemSetting);
+    const settingRepository = dataSource.getRepository('SystemSetting');
     await settingRepository.save([
       settingRepository.create({
         key: 'platform_commission',
@@ -452,7 +429,7 @@ export async function seedDatabase(dataSource: DataSource): Promise<void> {
 
     // 8. Seed Waitlist
     console.log('📍 Seeding waitlist entries...');
-    const waitlistRepository = dataSource.getRepository(Waitlist);
+    const waitlistRepository = dataSource.getRepository('Waitlist');
     await waitlistRepository.save([
       waitlistRepository.create({
         name: 'Rohan Sharma',

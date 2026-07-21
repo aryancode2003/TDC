@@ -44,12 +44,4 @@ export class Permission extends BaseEntity {
   isActive: boolean;
 }
 
-@Entity('role_permissions')
-@Index(['roleId', 'permissionId'], { unique: true })
-export class RolePermission extends BaseEntity {
-  @Column()
-  roleId: string;
 
-  @Column()
-  permissionId: string;
-}
