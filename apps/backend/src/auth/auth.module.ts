@@ -28,7 +28,7 @@ import { UserRepository } from '../users/repositories/user.repository';
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET'),
+        secret: configService.get<string>('JWT_SECRET') || 'tdc_default_jwt_secret_key_2026_operations_auth',
         signOptions: {
           expiresIn: (configService.get<string>('JWT_EXPIRES_IN') || '15m') as any,
         },

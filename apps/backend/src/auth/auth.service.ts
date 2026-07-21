@@ -240,7 +240,7 @@ export class AuthService {
   async refreshToken(refreshToken: string): Promise<JwtResponse> {
     try {
       const payload = this.jwtService.verify(refreshToken, {
-        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+        secret: this.configService.get<string>('JWT_REFRESH_SECRET') || 'tdc_default_jwt_refresh_secret_key_2026_operations_auth',
       }) as JwtPayload;
 
       // Check if refresh token is not revoked (stored in map)
@@ -286,11 +286,11 @@ export class AuthService {
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         expiresIn: accessTokenExpiresIn as any,
-        secret: this.configService.get<string>('JWT_SECRET'),
+        secret: this.configService.get<string>('JWT_SECRET') || 'tdc_default_jwt_secret_key_2026_operations_auth',
       }),
       this.jwtService.signAsync(payload, {
         expiresIn: refreshTokenExpiresIn as any,
-        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+        secret: this.configService.get<string>('JWT_REFRESH_SECRET') || 'tdc_default_jwt_refresh_secret_key_2026_operations_auth',
       }),
     ]);
 
